@@ -1,0 +1,17 @@
+{
+  "prefix": "wdsjsuite",
+  "child": {
+    "teleport": {
+      "content": {
+        "request.result.success": "§a请求已发送给%receiver%!",
+        "request.result.cooldown": "§c你还需要%time%才能使用该功能!",
+        "request.result.not_online": "§c目标玩家不在集群内!",
+        "request.result.own": "§c想啥呢!",
+        "accept.reply.result.success": "§a已接受请求!",
+        "accept.reply.result.not_online": "§c对方不在线!",
+        "accept.reply.result.not_exist": "§c请求不存在!",
+        "request.receive.click": "§a点击接受来自 %requester% 的传送请求"
+      }
+    }
+  }
+}

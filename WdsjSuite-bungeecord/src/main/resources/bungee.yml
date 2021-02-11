@@ -1,0 +1,7 @@
+name: WdsjSuite
+version: ${project.version}
+main: net.wdsj.mcserver.wdsjsuite.bungee.WdsjSuiteBungee
+
+
+depends:
+  - BungeeTabListPlus

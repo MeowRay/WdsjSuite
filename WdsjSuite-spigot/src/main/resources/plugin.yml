@@ -1,0 +1,25 @@
+name: WdsjSuite
+version: ${project.version}
+main: net.wdsj.mcserver.wdsjsuite.bukkit.WdsjSuiteBukkit
+api-version: 1.16
+
+depend:
+  - WdsjLib
+
+
+commands:
+  wdsjsuite:
+    permission: "wdsjsuite.admin"
+  tpa:
+    permission: "wdsjsuite.tpa"
+  tpaccept:
+    permission: "wdsjsuite.tpaccept"
+  tpahere:
+    permission: "wdsjsuite.tpahere"
+permissions:
+  wdsjsuite.tpa:
+    default: true
+  wdsjsuite.tpahere:
+    default: true
+  wdsjsuite.tpaccept:
+    default: true
