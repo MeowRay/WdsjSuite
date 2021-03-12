@@ -12,7 +12,7 @@ import java.util.*
  */
 open class SuiteMessageChannel : PluginMessageInvokeChannelReceiver<SuiteMessageChannel>("WdsjSuite") {
 
-    open fun revTeleport(uuid: UUID, location: String , function : FunctionDataEntity?) {
+    open fun revTeleport(uuid: UUID, location: String ) {
 
     }
 

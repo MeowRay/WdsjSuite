@@ -10,21 +10,16 @@ import javax.persistence.*
  * @version 1.0
  */
 @Entity
-@Table( uniqueConstraints = [UniqueConstraint(columnNames = ["uid", "home"])])
+@Table( uniqueConstraints = [UniqueConstraint(columnNames = ["res_name"])])
 @NoArg
-data class HomeEntity (
+data class ResidenceEntity (
 
     @Id
     var id: Long? = null,
 
-    var uid: Long = 0,
-
-    @Column(name = "home_id")
-    var homeId: String = "",
+    var resName: String = "",
 
     var server: String= "" ,
-
-    var location: String = ""
 
 
     )

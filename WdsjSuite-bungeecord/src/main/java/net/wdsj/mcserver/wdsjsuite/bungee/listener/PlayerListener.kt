@@ -25,7 +25,6 @@ class PlayerListener(val wdsjSuiteBungee: WdsjSuiteBungee) : Listener {
                     wdsjSuiteBungee.suiteMessageChannel.getRemoteCaller(event.player.name).revTeleport(
                         event.player.uniqueId,
                         it.location,
-                        it.functionEntity
                     )
                 }
             }

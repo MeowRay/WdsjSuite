@@ -15,7 +15,7 @@ data class SuiteBukkitConfig(
     @SubConfigInvoke
     var serverDomain: ServerDomain = ServerDomain(),
 
-    var function: Function = Function()
+    var function: MutableMap<String, Function> = mutableMapOf()
 
 
 )
@@ -32,15 +32,10 @@ data class ServerDomain(
 
 )
 
-data class Server(var server: String = "", var alias: String = "", var group: String = "")
+data class Server(var server: String = "", var alias: String = "", var group: List<String> = emptyList())
+
 
 data class Function(
-
-    var function: Map<String,FunctionSub> = emptyMap()
-
-)
-
-data class FunctionSub(
     var enable: Boolean = false,
     var rootConfig: ConfigurationSection? = null
 )

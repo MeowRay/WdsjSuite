@@ -3,6 +3,8 @@ version: ${project.version}
 main: net.wdsj.mcserver.wdsjsuite.bukkit.WdsjSuiteBukkit
 api-version: 1.16
 
+softdepend:
+  - Residence
 depend:
   - WdsjLib
 

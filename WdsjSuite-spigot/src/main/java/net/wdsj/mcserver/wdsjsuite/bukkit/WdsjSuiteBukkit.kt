@@ -1,14 +1,15 @@
 package net.wdsj.mcserver.wdsjsuite.bukkit
 
+import com.bekvon.bukkit.residence.Residence
+import com.bekvon.bukkit.residence.protection.ResidenceManager
 import mc233.cn.wdsjlib.bukkit.utils.BukkitUtils
 import net.wdsj.common.simpleconfig.file.YamlConfiguration
 import net.wdsj.mcserver.wdsjsuite.bukkit.channel.SuiteBukkitMessageChannel
 import net.wdsj.mcserver.wdsjsuite.bukkit.channel.SuiteBukkitSocketChannel
 import net.wdsj.mcserver.wdsjsuite.bukkit.command.SuiteBukkitCommand
+import net.wdsj.mcserver.wdsjsuite.bukkit.config.Server
 import net.wdsj.mcserver.wdsjsuite.bukkit.config.SuiteBukkitConfig
-import net.wdsj.mcserver.wdsjsuite.bukkit.function.SuiteBukkitFunction
-import net.wdsj.mcserver.wdsjsuite.bukkit.function.SuiteBukkitTeleportFunction
-import net.wdsj.mcserver.wdsjsuite.bukkit.function.SuiteBukkitWarpFunction
+import net.wdsj.mcserver.wdsjsuite.bukkit.function.*
 import net.wdsj.mcserver.wdsjsuite.bukkit.listener.PlayerListener
 import net.wdsj.mcserver.wdsjsuite.common.WdsjSuiteManager
 import net.wdsj.servercore.WdsjServerAPI
@@ -37,11 +38,18 @@ class WdsjSuiteBukkit : JavaPlugin() {
             return suiteConfig.serverDomain.servers.map { it.server }
         }
 
+    var groupServer: Map<String, Server> = emptyMap()
+
+
     val suiteBukkitMessageChannel: SuiteBukkitMessageChannel = SuiteBukkitMessageChannel(this)
     val suiteSocketChannel: SuiteBukkitSocketChannel = SuiteBukkitSocketChannel(this)
 
 
+    lateinit var manager: WdsjSuiteManager
+
+
     private val functionMap: MutableMap<String, SuiteBukkitFunction> = mutableMapOf()
+
 
     fun registerFunction(name: String, function: SuiteBukkitFunction) {
         functionMap[name] = function
@@ -81,7 +89,7 @@ class WdsjSuiteBukkit : JavaPlugin() {
         }
 */
 
-        Bukkit.getPluginManager().registerEvents(   PlayerListener() , this)
+        Bukkit.getPluginManager().registerEvents(PlayerListener, this)
 
     }
 
@@ -104,21 +112,34 @@ class WdsjSuiteBukkit : JavaPlugin() {
         val groupConfig: YamlConfiguration? =
             WdsjServerAPI.getConfigManager().readServerGroup("WdsjSuite", DatabaseBytesConfigValue())
 
-
         suiteConfig = (groupConfig ?: return).invoke(SuiteBukkitConfig::class.java)
 
-        WdsjSuiteManager(WdsjServerAPI.getDatabaseFactory().defMySqlDbManager  , suiteConfig.serverDomain.name )
 
-        for (entry in suiteConfig.function.function) {
-            if (entry.value.enable){
-              val f=   SuiteBukkitModule.getFunction(entry.key)
-              if (f !=null){
-                  logger.info("初始化功能: ${entry.key}")
-                  f.initialize(entry.value.rootConfig)
-              }else{
-                  logger.info("找不到功能: ${entry.key}")
-              }
-            }else{
+        val tg: MutableMap<String, Server> = mutableMapOf()
+        for (server in suiteConfig.serverDomain.servers) {
+            for (s in server.group) {
+                tg[s] = server
+            }
+        }
+        groupServer = tg
+
+
+        manager = WdsjSuiteManager(
+            WdsjServerAPI.getDatabaseFactory().defMySqlDbManager,
+            suiteConfig.serverDomain.name,
+            suiteBukkitMessageChannel
+        )
+
+        for (entry in suiteConfig.function) {
+            if (entry.value.enable) {
+                val f = SuiteBukkitModule.getFunction(entry.key)
+                if (f != null) {
+                    logger.info("初始化功能: ${entry.key}")
+                    f.initialize(entry.value.rootConfig, manager)
+                } else {
+                    logger.info("找不到功能: ${entry.key}")
+                }
+            } else {
                 logger.info("禁用功能: ${entry.key}")
             }
         }
@@ -132,8 +153,11 @@ class WdsjSuiteBukkit : JavaPlugin() {
     }
 
     fun initFunc() {
-        SuiteBukkitModule.registerFunction("teleport", SuiteBukkitTeleportFunction())
-        SuiteBukkitModule.registerFunction("warp", SuiteBukkitWarpFunction())
+        SuiteBukkitModule.registerFunction("teleport", TeleportFunction())
+        SuiteBukkitModule.registerFunction("warp", WarpFunction())
+        SuiteBukkitModule.registerFunction("residence", ResidenceFunction())
+        SuiteBukkitModule.registerFunction("plot", PlotFunction())
+        SuiteBukkitModule.registerFunction("home", HomeFunction())
     }
 
 }

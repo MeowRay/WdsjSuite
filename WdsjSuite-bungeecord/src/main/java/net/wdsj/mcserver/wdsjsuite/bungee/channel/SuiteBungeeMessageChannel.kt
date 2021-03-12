@@ -19,7 +19,7 @@ open class SuiteBungeeMessageChannel(private val manager: WdsjSuiteBungee) : Sui
         BungeeUtils.getPlayerIfOnline(uuid).execute { player ->
             ProxyServer.getInstance().getServerInfo(data.targetServer)?.let { serverInfo ->
                 if (player.server.info == serverInfo) {
-                    getRemoteCallerByCache(player.name).revTeleport(player.uniqueId, data.location , data.functionEntity )
+                    getRemoteCallerByCache(player.name).revTeleport(player.uniqueId, data.location )
                 } else {
                     player.connect(serverInfo)
                     manager.putPlayerTeleportQueue(player, data)

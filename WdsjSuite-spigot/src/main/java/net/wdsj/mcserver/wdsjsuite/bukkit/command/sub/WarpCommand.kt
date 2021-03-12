@@ -5,12 +5,14 @@ import mc233.cn.wdsjlib.bukkit.utils.extensions.toSaveString
 import net.wdsj.mcserver.wdsjsuite.bukkit.WdsjSuiteBukkit
 import net.wdsj.mcserver.wdsjsuite.common.ServerTeleportData
 import net.wdsj.mcserver.wdsjsuite.common.WdsjSuiteManager
+import net.wdsj.mcserver.wdsjsuite.common.service.WarpService
 import net.wdsj.servercore.WdsjServerAPI
 import net.wdsj.servercore.common.command.WdsjCommand
 import net.wdsj.servercore.common.command.anntations.Arg
 import net.wdsj.servercore.common.command.anntations.GlobalCommand
 import net.wdsj.servercore.common.command.anntations.SubCommand
 import net.wdsj.servercore.utils.extensions.execute
+import org.bukkit.Location
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 
@@ -21,12 +23,12 @@ import org.bukkit.entity.Player
  */
 
 @GlobalCommand(permission = "bungeesuite", subCmdPerm = true )
-class WarpCommand(private val suiteManager: WdsjSuiteManager) : WdsjCommand<CommandSender> {
+class WarpCommand(private val warpService: WarpService) : WdsjCommand<CommandSender> {
 
     @SubCommand(async = true)
     fun warp(sender: CommandSender,key: String , @Arg(required = false) playerName: String?) {
         BukkitUtils.getPlayerIfOnline(playerName).execute { player ->
-            suiteManager.let {
+            warpService.let {
                 val warpEntity = it.getServerLocation( key)
                 if (warpEntity != null) {
                     if (warpEntity.location.isNotBlank()) {
@@ -37,7 +39,6 @@ class WarpCommand(private val suiteManager: WdsjSuiteManager) : WdsjCommand<Comm
                                     WdsjServerAPI.getServerInfo().name,
                                     warpEntity.server,
                                     warpEntity.location,
-                                    null
                                 )
                             );
                         sendMessage(sender, "传送中...")
@@ -55,14 +56,14 @@ class WarpCommand(private val suiteManager: WdsjSuiteManager) : WdsjCommand<Comm
             WdsjSuiteBukkit.instance.suiteBukkitMessageChannel.getRemoteCallerByCache(playerName)
                 .reqTeleport(
                     player.uniqueId,
-                    ServerTeleportData(WdsjServerAPI.getServerInfo().name, server, location, null)
+                    ServerTeleportData(WdsjServerAPI.getServerInfo().name, server, location)
                 )
         }
     }
 
     @SubCommand(async = true)
     fun setWarp(sender: Player, warpName: String) {
-        suiteManager.saveServerLocation(
+        warpService.saveServerLocation(
             warpName,
             WdsjServerAPI.getServerInfo().name,
             sender.location.toSaveString()

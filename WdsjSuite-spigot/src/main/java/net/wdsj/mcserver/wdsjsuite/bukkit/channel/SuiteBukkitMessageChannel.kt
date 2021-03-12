@@ -18,7 +18,7 @@ open class SuiteBukkitMessageChannel @JvmOverloads constructor(var suiteBukkit: 
 
 
 
-    override fun revTeleport(uuid: UUID, location: String , function : FunctionDataEntity?) {
+    override fun revTeleport(uuid: UUID, location: String ) {
         BukkitUtils.getPlayerIfOnline(uuid).execute {
             val toBukkitLocation = location.toLocation()
             it.teleport(toBukkitLocation)

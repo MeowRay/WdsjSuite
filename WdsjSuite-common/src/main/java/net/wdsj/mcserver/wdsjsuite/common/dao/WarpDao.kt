@@ -9,7 +9,7 @@ import net.wdsj.mcserver.wdsjsuite.common.dao.entity.WarpEntity
  * @version 1.0
  */
 
-interface WarpService {
+interface WarpDao {
 
     fun getLocation(key: String) : WarpEntity?
 

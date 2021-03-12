@@ -10,12 +10,14 @@ import net.jodah.expiringmap.ExpiringMap
 import net.md_5.bungee.api.chat.ClickEvent
 import net.md_5.bungee.api.chat.ComponentBuilder
 import net.wdsj.common.simpleconfig.ConfigurationSection
+import net.wdsj.mcserver.langutils.lang.LangKey
 import net.wdsj.mcserver.wdsjsuite.bukkit.WdsjSuiteBukkit
 import net.wdsj.mcserver.wdsjsuite.bukkit.command.sub.CommandTpa
 import net.wdsj.mcserver.wdsjsuite.bukkit.command.sub.CommandTpaccept
 import net.wdsj.mcserver.wdsjsuite.bukkit.command.sub.CommandTpahere
 import net.wdsj.mcserver.wdsjsuite.bukkit.utils.SuiteBukkitUtils
-import net.wdsj.mcserver.wdsjsuite.bukkit.utils.SuiteLang
+import net.wdsj.mcserver.wdsjsuite.common.WdsjSuiteManager
+import net.wdsj.mcserver.wdsjsuite.common.util.SuiteLang
 import net.wdsj.servercore.WdsjServerAPI
 import net.wdsj.servercore.common.ResultParams
 import net.wdsj.servercore.common.command.CommandProxyBuilder
@@ -35,11 +37,165 @@ import java.util.concurrent.TimeUnit
  * @date  2020/12/4 13:40
  * @version 1.0
  */
-open class SuiteBukkitTeleportFunction : SuiteBukkitChannelFunction<SuiteBukkitTeleportFunction>("Teleport"),
+open class TeleportFunction :
     SuiteBukkitFunction {
 
     lateinit var config: TeleportConfig
-    lateinit var impl: TeleportFunctionImpl
+    lateinit var channel: TeleportChannel
+
+    override fun initialize(configSection: ConfigurationSection?, manager: WdsjSuiteManager) {
+        channel = TeleportChannel().apply { impl = this@TeleportFunction }
+
+        config = ConfigInvoke.invoke(TeleportConfig::class.java, configSection)
+        WdsjServerAPI.getPluginManager().run {
+            if (config.enableTpa) {
+                registerCommand(
+                    CommandProxyBuilder.newBuilder(this, CommandTpa(this@TeleportFunction)).setName("TPA")
+                        .setLabel("tpa")
+                )
+            }
+            if (config.enableTpaHere) {
+                registerCommand(
+                    CommandProxyBuilder.newBuilder(this, CommandTpahere(this@TeleportFunction)).setName("TPAHERE")
+                        .setLabel("tpahere")
+                )
+            }
+            registerCommand(
+                CommandProxyBuilder.newBuilder(this, CommandTpaccept(this@TeleportFunction)).setName("TPACCEPT")
+                    .setLabel("tpaccept")
+            )
+        }
+    }
+
+    override fun deInitialize() {
+        WdsjServerAPI.getPluginManager().run {
+            unregisterCommand("tpa")
+            unregisterCommand("tpahere")
+            unregisterCommand("tpaccept")
+        }
+    }
+
+    private val teleportListener: TeleportListener = TeleportListener(this)
+
+    init {
+        Bukkit.getPluginManager().registerEvents(teleportListener, WdsjSuiteBukkit.instance)
+        println("debug > new TeleportImpl")
+    }
+
+
+    val receiverDataMap: ExpiringMap<UserData, TeleportData> =
+        ExpiringMap.builder().expiration(1, TimeUnit.MINUTES).build()
+
+    val receiverMap: ExpiringMap<String, UserData> =
+        ExpiringMap.builder().expiration(1, TimeUnit.MINUTES).build()
+
+    val requestMap: ExpiringMap<String, String> =
+        ExpiringMap.builder().expiration(1, TimeUnit.MINUTES).build()
+
+    val acceptMap: ExpiringMap<String, String> = ExpiringMap.builder().expiration(15, TimeUnit.SECONDS).build()
+
+
+    private val tpaCooldown: RedisCooldown by lazy {
+        RedisCooldown(
+            WdsjServerAPI.getDatabaseFactory().defRedisDbManager,
+            "wdsjsuite:${WdsjSuiteBukkit.instance.suiteConfig.serverDomain.name}:tpa",
+            config.cooldown
+        )
+    }
+
+    private val teleportCooldown: RedisCooldown by lazy {
+        RedisCooldown(
+            WdsjServerAPI.getDatabaseFactory().defRedisDbManager,
+            "wdsjsuite:${WdsjSuiteBukkit.instance.suiteConfig.serverDomain.name}:teleport",
+            30000
+        )
+    }
+
+    fun requestTeleport(
+        requester: String,
+        receiver: String,
+        comeHere: Boolean = false,
+        cd: Boolean = true
+    ): ResultParams<RequestResult> {
+        if (requester == receiver) return ResultParams(RequestResult.OWN)
+        if (cd) {
+            val cooldown = tpaCooldown.get(requester)
+            if (cooldown.isCooldown) {
+                return ResultParams(RequestResult.COOLDOWN, "time" to (cooldown.time / 1000).toString())
+            }
+        }
+
+        SuiteBukkitUtils.getPlayerRedisOnlineInfo(receiver).run {
+            if (this != null && WdsjSuiteBukkit.instance.isDomainServer(server)) {
+                val uData = UserData(requester, receiver)
+                val requestResult =
+                    channel.getRemoteCallerByCache(server)
+                        .requestTeleport(TeleportData(WdsjServerAPI.getServerInfo().name, comeHere), uData).`object`
+                if (requestResult == RequestResult.SUCCESS) {
+                    requestMap[requester] = receiver
+                    if (cd) {
+                        tpaCooldown.put(requester)
+                    }
+                }
+                return ResultParams(requestResult ?: RequestResult.ERROR, "receiver" to receiver)
+            }
+        }
+        return ResultParams(RequestResult.NOT_ONLINE)
+    }
+
+    fun teleport(fromPlayer: String, toPlayer: String): TeleportResult {
+        val r = BukkitUtils.getPlayerIfOnline(fromPlayer).run {
+            if (isPresent) {
+                channel.teleportTo(fromPlayer, toPlayer)
+            } else {
+                SuiteBukkitUtils.getPlayerRedisOnlineInfo(fromPlayer)?.let {
+                    channel.getRemoteCallerByCache(it.server).teleportTo(fromPlayer, toPlayer)
+                }
+            }
+        }
+        r?.let {
+            if (it.type == InvokeResult.Type.SUCCESS) {
+                return it.`object`
+            }
+        }
+        return TeleportResult.ERROR
+
+    }
+
+    fun acceptTeleport(receiver: String, requester: String?): ResultParams<AcceptReplyResult> {
+        if (requester == null) {
+            receiverMap[receiver]?.let {
+                val tData = receiverDataMap.remove(it)
+                receiverMap.remove(receiver)
+                acceptMap[it.requester] = receiver
+                tData?.let { s ->
+                    return ResultParams(
+                        channel.getRemoteCallerByCache(s.fromServer)
+                            .replyTeleport(tData, it).`object`
+                    )
+                }
+            }
+        } else {
+            val teleportData = UserData(requester, receiver)
+            println("accept $teleportData")
+            receiverDataMap[teleportData]?.let {
+                println("accept exist $teleportData")
+                receiverDataMap.remove(teleportData)
+                receiverMap.remove(receiver)
+                acceptMap[requester] = receiver
+                return ResultParams(
+                    channel.getRemoteCallerByCache(it.fromServer)
+                        .replyTeleport(it, teleportData).`object`
+                )
+            }
+        }
+        return ResultParams(AcceptReplyResult.NOT_EXIST)
+    }
+
+}
+
+open class TeleportChannel : ChannelFunction<TeleportChannel>("Teleport") {
+    lateinit var impl: TeleportFunction
 
     open fun requestTeleport(tData: TeleportData, uData: UserData): InvokeResult<RequestResult> {
         return BukkitUtils.getPlayerIfOnline(uData.receiver).execute {
@@ -118,38 +274,6 @@ open class SuiteBukkitTeleportFunction : SuiteBukkitChannelFunction<SuiteBukkitT
         } ?: InvokeResult(InvokeResult.Type.SUCCESS, TeleportResult.NOT_ONLINE_FROM)
     }
 
-    override fun initialize(configSection: ConfigurationSection?) {
-        impl = TeleportFunctionImpl(this, config)
-        config = ConfigInvoke.invoke(TeleportConfig::class.java, configSection)
-        WdsjServerAPI.getPluginManager().run {
-            if (config.enableTpa) {
-                registerCommand(
-                    CommandProxyBuilder.newBuilder(this, CommandTpa(impl)).setName("TPA")
-                        .setLabel("tpa")
-                )
-            }
-            if (config.enableTpaHere) {
-                registerCommand(
-                    CommandProxyBuilder.newBuilder(this, CommandTpahere(impl)).setName("TPAHERE")
-                        .setLabel("tpahere")
-                )
-            }
-            registerCommand(
-                CommandProxyBuilder.newBuilder(this, CommandTpaccept(impl)).setName("TPACCEPT")
-                    .setLabel("tpaccept")
-            )
-        }
-    }
-
-    override fun deInitialize() {
-        WdsjServerAPI.getPluginManager().run {
-            unregisterCommand("tpa")
-            unregisterCommand("tpahere")
-            unregisterCommand("tpaccept")
-        }
-    }
-
-
 }
 
 data class TeleportConfig(
@@ -158,128 +282,7 @@ data class TeleportConfig(
     var cooldown: Int = 3000
 )
 
-class TeleportFunctionImpl(val channelFunction: SuiteBukkitTeleportFunction, config: TeleportConfig) {
-
-    private val teleportListener: TeleportListener = TeleportListener(this)
-
-    init {
-        Bukkit.getPluginManager().registerEvents(teleportListener, WdsjSuiteBukkit.instance)
-        println("debug > new TeleportImpl")
-    }
-
-
-    val receiverDataMap: ExpiringMap<UserData, TeleportData> =
-        ExpiringMap.builder().expiration(1, TimeUnit.MINUTES).build()
-
-    val receiverMap: ExpiringMap<String, UserData> =
-        ExpiringMap.builder().expiration(1, TimeUnit.MINUTES).build()
-
-    val requestMap: ExpiringMap<String, String> =
-        ExpiringMap.builder().expiration(1, TimeUnit.MINUTES).build()
-
-    val acceptMap: ExpiringMap<String, String> = ExpiringMap.builder().expiration(15, TimeUnit.SECONDS).build()
-
-
-    private val tpaCooldown: RedisCooldown by lazy {
-        RedisCooldown(
-            WdsjServerAPI.getDatabaseFactory().defRedisDbManager,
-            "wdsjsuite:${WdsjSuiteBukkit.instance.suiteConfig.serverDomain.name}:tpa",
-            config.cooldown
-        )
-    }
-
-    private val teleportCooldown: RedisCooldown by lazy {
-        RedisCooldown(
-            WdsjServerAPI.getDatabaseFactory().defRedisDbManager,
-            "wdsjsuite:${WdsjSuiteBukkit.instance.suiteConfig.serverDomain.name}:teleport",
-            30000
-        )
-    }
-
-    fun requestTeleport(
-        requester: String,
-        receiver: String,
-        comeHere: Boolean = false,
-        cd: Boolean = true
-    ): ResultParams<RequestResult> {
-        if (requester == receiver) return ResultParams(RequestResult.OWN)
-        if (cd) {
-            val cooldown = tpaCooldown.get(requester)
-            if (cooldown.isCooldown) {
-                return ResultParams(RequestResult.COOLDOWN, "time" to (cooldown.time / 1000).toString())
-            }
-        }
-
-        SuiteBukkitUtils.getPlayerRedisOnlineInfo(receiver).run {
-            if (this != null && WdsjSuiteBukkit.instance.isDomainServer(server)) {
-                val uData = UserData(requester, receiver)
-                val requestResult =
-                    channelFunction.getRemoteCallerByCache(server)
-                        .requestTeleport(TeleportData(WdsjServerAPI.getServerInfo().name, comeHere), uData).`object`
-                if (requestResult == RequestResult.SUCCESS) {
-                    requestMap[requester] = receiver
-                    if (cd) {
-                        tpaCooldown.put(requester)
-                    }
-                }
-                return ResultParams(requestResult ?: RequestResult.ERROR, "receiver" to receiver)
-            }
-        }
-        return ResultParams(RequestResult.NOT_ONLINE)
-    }
-
-    fun teleport(fromPlayer: String, toPlayer: String): TeleportResult {
-        val r = BukkitUtils.getPlayerIfOnline(fromPlayer).run {
-            if (isPresent) {
-                channelFunction.teleportTo(fromPlayer, toPlayer)
-            } else {
-                SuiteBukkitUtils.getPlayerRedisOnlineInfo(fromPlayer)?.let {
-                    channelFunction.getRemoteCallerByCache(it.server).teleportTo(fromPlayer, toPlayer)
-                }
-            }
-        }
-        r?.let {
-            if (it.type == InvokeResult.Type.SUCCESS) {
-                return it.`object`
-            }
-        }
-        return TeleportResult.ERROR
-
-    }
-
-    fun acceptTeleport(receiver: String, requester: String?): ResultParams<AcceptReplyResult> {
-        if (requester == null) {
-            receiverMap[receiver]?.let {
-                val tData = receiverDataMap.remove(it)
-                receiverMap.remove(receiver)
-                acceptMap[it.requester] = receiver
-                tData?.let { s ->
-                    return ResultParams(
-                        channelFunction.getRemoteCallerByCache(s.fromServer)
-                            .replyTeleport(tData, it).`object`
-                    )
-                }
-            }
-        } else {
-            val teleportData = UserData(requester, receiver)
-            println("accept $teleportData")
-            receiverDataMap[teleportData]?.let {
-                println("accept exist $teleportData")
-                receiverDataMap.remove(teleportData)
-                receiverMap.remove(receiver)
-                acceptMap[requester] = receiver
-                return ResultParams(
-                    channelFunction.getRemoteCallerByCache(it.fromServer)
-                        .replyTeleport(it, teleportData).`object`
-                )
-            }
-        }
-        return ResultParams(AcceptReplyResult.NOT_EXIST)
-    }
-    // fun getKey(requester: String, receiver: String) = "$requester@$receiver"
-}
-
-class TeleportListener(private val impl: TeleportFunctionImpl) : Listener {
+class TeleportListener(private val impl: TeleportFunction) : Listener {
 
     @EventHandler
     fun on(event: PlayerJoinEvent) {
@@ -301,33 +304,54 @@ class TeleportListener(private val impl: TeleportFunctionImpl) : Listener {
 }
 
 
-enum class RequestResult {
+enum class RequestResult : LangKey {
     SUCCESS,
     NOT_ONLINE,
     OWN,
     TIMEOUT,
     COOLDOWN,
     ERROR,
+
+    ;
+
+    override fun getLocalKey(): String {
+        return SuiteLang.formatKeyString("teleport.$name")
+    }
 }
 
-enum class ReceiverResult {
+enum class ReceiverResult : LangKey {
     SUCCESS,
     NOT_ONLINE,
     TIMEOUT,
+    ;
+
+    override fun getLocalKey(): String {
+        return SuiteLang.formatKeyString("teleport.$name")
+    }
 }
 
-enum class AcceptReplyResult {
+enum class AcceptReplyResult : LangKey {
     SUCCESS,
     NOT_ONLINE,
     NOT_EXIST,
+    ;
+
+    override fun getLocalKey(): String {
+        return SuiteLang.formatKeyString("teleport.$name")
+    }
 }
 
-enum class TeleportResult {
+enum class TeleportResult : LangKey {
     SUCCESS,
     NOT_ONLINE_FROM,
     NOT_ONLINE_TO,
     NOT_IN_SOME_DOMAIN,
     ERROR,
+    ;
+
+    override fun getLocalKey(): String {
+        return SuiteLang.formatKeyString("teleport.$name")
+    }
 }
 
 

@@ -70,5 +70,17 @@
             <version>1.0</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>net.wdsj.bukkit</groupId>
+            <artifactId>Residence</artifactId>
+            <version>4.8.8.2</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.wdsj.bukkit</groupId>
+            <artifactId>PlotSquared5</artifactId>
+            <version>5.13.1</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 </project>

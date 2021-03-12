@@ -1,9 +1,6 @@
 package net.wdsj.mcserver.wdsjsuite.bukkit.function
 
 import net.wdsj.common.simpleconfig.ConfigurationSection
-import net.wdsj.mcserver.wdsjsuite.bukkit.WdsjSuiteBukkit
-import net.wdsj.mcserver.wdsjsuite.bukkit.command.sub.CommandTpa
-import net.wdsj.mcserver.wdsjsuite.bukkit.command.sub.HomeCommand
 import net.wdsj.mcserver.wdsjsuite.bukkit.command.sub.WarpCommand
 import net.wdsj.mcserver.wdsjsuite.common.WdsjSuiteManager
 import net.wdsj.servercore.WdsjServerAPI
@@ -14,13 +11,13 @@ import net.wdsj.servercore.common.command.CommandProxyBuilder
  * @version 1.0
  * @date 2021/1/21 20:10
  */
-class SuiteBukkitHomeFunction :SuiteBukkitFunction {
+class WarpFunction :SuiteBukkitFunction {
 
 
-    override fun initialize(configSection: ConfigurationSection?) {
+    override fun initialize(configSection: ConfigurationSection?, manager: WdsjSuiteManager) {
         WdsjServerAPI.getPluginManager().run {
             registerCommand(
-                CommandProxyBuilder.newBuilder(this, HomeCommand(this@SuiteBukkitHomeFunction)).setName("warp")
+                CommandProxyBuilder.newBuilder(this, WarpCommand(manager.warpService)).setName("warp")
                     .setLabel("warp")
             )
         }
@@ -28,7 +25,8 @@ class SuiteBukkitHomeFunction :SuiteBukkitFunction {
 
     override fun deInitialize() {
         WdsjServerAPI.getPluginManager().run {
-            unregisterCommand("warp")
+            unregisterCommand("warp"
+            )
         }
     }
 }

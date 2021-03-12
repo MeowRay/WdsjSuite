@@ -1,5 +1,6 @@
 package net.wdsj.mcserver.wdsjsuite.common.dao.entity
 
+import meow.anno.NoArg
 import javax.persistence.*
 
 /**
@@ -11,6 +12,7 @@ import javax.persistence.*
 
 @Entity
 @Table( uniqueConstraints = [UniqueConstraint(columnNames = [ "key"])])
+@NoArg
 data class WarpEntity(
 
         @Id
@@ -21,6 +23,4 @@ data class WarpEntity(
         var server: String= "" ,
 
         var location: String= ""
-) {
-    constructor(key: String, server: String ,  location: String) : this(null, key,  server , location)
-}
+)

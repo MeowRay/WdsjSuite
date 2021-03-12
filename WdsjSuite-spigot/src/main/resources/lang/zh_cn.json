@@ -12,6 +12,22 @@
         "accept.reply.result.not_exist": "§c请求不存在!",
         "request.receive.click": "§a点击接受来自 %requester% 的传送请求"
       }
+    },
+    "home": {
+      "content": {
+        "set.success": "§a设置成功!",
+        "set.name.not_match_regex": "§c你还需要%time%才能使用该功能!",
+        "back.success": "§a回到 §e%home_id%",
+        "back.not_exist": "§c不存在 §e%home_id%"
+      }
+    },
+    "residence": {
+      "content": {
+        "tp.failure": "§c传送失败，请稍后再试!",
+        "tp.success": "§a正在传送",
+        "back.success": "§a回到 §e%home_id%",
+        "back.not_exist": "§c不存在 §e%home_id%"
+      }
     }
   }
 }

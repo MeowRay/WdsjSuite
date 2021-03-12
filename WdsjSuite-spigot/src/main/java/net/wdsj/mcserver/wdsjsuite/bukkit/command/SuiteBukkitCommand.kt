@@ -1,9 +1,12 @@
 package net.wdsj.mcserver.wdsjsuite.bukkit.command
 
+import com.bekvon.bukkit.residence.Residence
 import net.wdsj.mcserver.wdsjsuite.common.ServerTeleportData
 import mc233.cn.wdsjlib.bukkit.utils.BukkitUtils
 import mc233.cn.wdsjlib.bukkit.utils.extensions.toSaveString
+import net.wdsj.mcserver.wdsjsuite.bukkit.SuiteBukkitModule
 import net.wdsj.mcserver.wdsjsuite.bukkit.WdsjSuiteBukkit
+import net.wdsj.mcserver.wdsjsuite.bukkit.function.ResidenceFunction
 import net.wdsj.mcserver.wdsjsuite.common.WdsjSuiteManager
 import net.wdsj.servercore.WdsjServerAPI
 import net.wdsj.servercore.common.command.WdsjCommand
@@ -13,6 +16,7 @@ import net.wdsj.servercore.common.command.anntations.SubCommand
 import net.wdsj.servercore.utils.extensions.execute
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
+import java.lang.Exception
 
 /**
  * @author  Arthur
@@ -29,9 +33,25 @@ class SuiteBukkitCommand : WdsjCommand<CommandSender> {
             WdsjSuiteBukkit.instance.suiteBukkitMessageChannel.getRemoteCallerByCache(playerName)
                 .reqTeleport(
                     player.uniqueId,
-                    ServerTeleportData(WdsjServerAPI.getServerInfo().name, server, location, null)
+                    ServerTeleportData(WdsjServerAPI.getServerInfo().name, server, location)
                 )
         }
+    }
+
+    @SubCommand(async = true)
+    fun resConvert(sender: CommandSender) {
+        try {
+            val service = SuiteBukkitModule.getFunction(ResidenceFunction::class.java).service
+
+            for (entry in Residence.getInstance().residenceManager.residences.entries) {
+                service.addResidence(entry.key, WdsjServerAPI.getServerInfo().name)
+            }
+
+        } catch (e: Exception) {
+            sender.sendMessage(e.localizedMessage)
+            e.printStackTrace()
+        }
+
     }
 
 

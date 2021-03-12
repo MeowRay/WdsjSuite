@@ -46,8 +46,25 @@
             <version>2.0</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>com.meowray.meowanno</groupId>
+            <artifactId>MeowAnno</artifactId>
+            <version>1.0</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
-
+    <distributionManagement>
+        <repository>
+            <id>nexus-releases</id>
+            <name>Release Repository</name>
+            <url>${ReleaseRepository}</url>
+        </repository>
+        <snapshotRepository>
+            <id>nexus-snapshots</id>
+            <name>Snapshot Repository</name>
+            <url>${SnapshotRepository}</url>
+        </snapshotRepository>
+    </distributionManagement>
     <build>
         <pluginManagement>
             <plugins>
@@ -110,5 +127,6 @@
         <module>wdsjsuite-common</module>
         <module>wdsjsuite-spigot</module>
         <module>wdsjsuite-bungeecord</module>
+        <module>WdsjSuite-bootstrap</module>
     </modules>
 </project>
